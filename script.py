@@ -157,3 +157,9 @@ dfFiles['FileType'] = np.select(conditions, values)
 dfFiles['WeekNo'] = dfFiles.FileName.str.extract('(\d+)')
 
 print(dfFiles)
+
+#add HTML that should be in summary
+dfFiles['HTML'] = '''<a href="''' + ENDPOINTFILES  + dfFiles['FileName'].astype(str)+ '''">Week'''+  dfFiles['WeekNo'].astype(str) + ': ' + dfFiles['FileType'].astype(str) + '</a><br>'
+
+with pd.option_context('display.max_rows', None, 'display.max_columns', None,'display.max_colwidth', None):
+    print (dfFiles)
