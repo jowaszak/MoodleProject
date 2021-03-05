@@ -127,3 +127,33 @@ with pd.option_context('display.max_rows', None, 'display.max_columns', None):
         #"summaryformat",
         #"uservisible",
         #"visible"
+# use Glob() function to find files recursively
+
+files=[]
+for file in glob.iglob('**/*\*.*', recursive=True):
+    files.append(
+            {
+                    'FileName':file
+            }
+        )
+
+#Load to DF
+
+dfFiles= pd.DataFrame(files)
+
+#Add column based on condition to know what file it is
+conditions= [
+    (dfFiles.FileName.str.endswith('.html')),
+    (dfFiles.FileName.str.endswith('.md')),
+    (dfFiles.FileName.str.endswith('.pdf'))
+    ]
+
+values=['html','md','pdf']
+
+dfFiles['FileType'] = np.select(conditions, values)
+
+
+# Exctract week number and add column
+dfFiles['WeekNo'] = dfFiles.FileName.str.extract('(\d+)')
+
+print(dfFiles)
