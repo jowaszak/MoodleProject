@@ -1,7 +1,9 @@
 from requests import get, post
 import json
-from dateutil import parser
+#from dateutil import parser
 import datetime
+import pandas as pd 
+import numpy as np
 
 # Module variables to connect to moodle api:
 # Insert token and URL for your site here.
@@ -9,7 +11,7 @@ import datetime
 KEY = "8cc87cf406775101c2df87b07b3a170d"
 URL = "https://034f8a1dcb5c.eu.ngrok.io"
 ENDPOINT = "/webservice/rest/server.php"
-
+NUMOFWEEKS= 12
 
 def rest_api_parameters(in_args, prefix='', out_dict=None):
     """Transform dictionary/array structure to a flat dictionary, with key names
@@ -77,34 +79,51 @@ class LocalUpdateSections(object):
 ################################################
 
 
-courseid = "14"  # Exchange with valid id.
+courseid = "8"  # Exchange with valid id.
 # Get all sections of the course.
 sec = LocalGetSections(courseid)
 
-# Output readable JSON, but print only summary
-print(json.dumps(sec.getsections[1]['summary'], indent=4, sort_keys=True))
 
-# Split the section name by dash and convert the date into the timestamp, it takes the current year, so think of a way for making sure it has the correct year!
-month = parser.parse(list(sec.getsections)[1]['name'].split('-')[0])
-# Show the resulting timestamp
-print(month)
-# Extract the week number from the start of the calendar year
-print(month.strftime("%V"))
+
+# Get all sections of the course.
+sec = LocalGetSections(courseid)
+#print(sec.getsections)
+
+
+
 
 #  Assemble the payload
-data = [{'type': 'num', 'section': 0, 'summary': '', 'summaryformat': 1, 'visible': 1 , 'highlight': 0, 'sectionformatoptions': [{'name': 'level', 'value': '1'}]}]
+#data = [{'type': 'num', 'section': 0, 'summary': '', 'summaryformat': 1, 'visible': 1 , 'highlight': 0, 'sectionformatoptions': [{'name': 'level', 'value': '1'}]}]
 
-# Assemble the correct summary
-summary = '<a href="https://mikhail-cct.github.io/ca3-test/wk1/">Week 1: Introduction</a><br>'
+## Assemble the correct summary
+#summary = '<a href="https://mikhail-cct.github.io/ca3-test/wk1/">Week 1: Introduction</a><br>'
 
-# Assign the correct summary
-data[0]['summary'] = summary
+## Assign the correct summary
+#data[0]['summary'] = summary
 
-# Set the correct section number
-data[0]['section'] = 1
+## Set the correct section number
+#data[0]['section'] = 1
 
-# Write the data back to Moodle
-sec_write = LocalUpdateSections(courseid, data)
+## Write the data back to Moodle
+#sec_write = LocalUpdateSections(courseid, data)
 
-sec = LocalGetSections(courseid)
-print(json.dumps(sec.getsections[1]['summary'], indent=4, sort_keys=True))
+
+# write data do dataframe
+dfmoodle = pd.DataFrame(sec.getsections) 
+
+#print all
+with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+    print (dfObj)
+
+
+        #"availability",
+        #"courseformat",
+        #"id",
+        #"name",
+        #"sectionformatoptions",
+        #"sectionnum",
+        #"sequence",
+        #"summary",
+        #"summaryformat",
+        #"uservisible",
+        #"visible"
