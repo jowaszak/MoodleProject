@@ -193,3 +193,24 @@ sectionsToUpdate= list(df['sectionnum'])
 print(sectionsToUpdate)
 #df.info()
 #print (sectionsToUpdate)
+
+
+for sections in sectionsToUpdate:
+    #  Assemble the payload
+    data = [{'type': 'num', 'section': 0, 'summary': '', 'summaryformat': 1, 'visible': 1 , 'highlight': 0, 'sectionformatoptions': [{'name': 'level', 'value': '1'}]}]
+    courseid = "10"  # Exchange with valid id.
+    # Assemble the correct summary
+    summary = df['summaryFile'].where(df['sectionnum']== sections).dropna()
+    #print(summary )
+
+
+    # Assign the correct summary
+    data[0]['summary'] = summary
+
+    # Set the correct section number
+    data[0]['section'] = sections
+  
+    print(data)
+    # Write the data back to Moodle
+    sec_write = LocalUpdateSections(courseid, data)
+
