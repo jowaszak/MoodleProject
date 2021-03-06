@@ -169,3 +169,27 @@ dfFiles= pd.pivot_table(dfFiles,
                           columns = ['FileType'],
                           aggfunc=lambda x: ' '.join(x)
                           ).reset_index()
+
+dfFiles['summaryFile'] = dfFiles['html'].astype(str)+dfFiles['md'].astype(str)+dfFiles['pdf'].astype(str)
+#Merge the two dataframes and 
+dfmerge = pd.merge(dfFiles, dfmoodle[['summary','sectionnum']], on=['sectionnum'], how='left')
+
+#setting the index of data frame
+#dfmerge.set_index("sectionnum", inplace=True)
+
+#Lookup the sections to update
+
+df = dfmerge.where(dfmerge['summary'] != dfmerge['summaryFile']).dropna()
+
+#setting the index of data frame
+#df.set_index("sectionnum", inplace=True)
+#
+
+
+##with pd.option_context('display.max_rows', None, 'display.max_columns', None,'display.max_colwidth', None):
+##    print (dfmerge['sectionnum'])
+
+sectionsToUpdate= list(df['sectionnum'])
+print(sectionsToUpdate)
+#df.info()
+#print (sectionsToUpdate)
