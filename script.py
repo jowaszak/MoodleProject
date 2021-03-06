@@ -1,6 +1,5 @@
 from requests import get, post
 import json
-#from dateutil import parser
 import datetime
 import pandas as pd 
 import numpy as np
@@ -171,6 +170,9 @@ dfFiles= pd.pivot_table(dfFiles,
                           ).reset_index()
 
 dfFiles['summaryFile'] = dfFiles['html'].astype(str)+dfFiles['md'].astype(str)+dfFiles['pdf'].astype(str)
+
+
+
 #Merge the two dataframes and 
 dfmerge = pd.merge(dfFiles, dfmoodle[['summary','sectionnum']], on=['sectionnum'], how='left')
 
@@ -185,11 +187,11 @@ df = dfmerge.where(dfmerge['summary'] != dfmerge['summaryFile']).dropna()
 #df.set_index("sectionnum", inplace=True)
 #
 
-
+#pd.options.display.float_format = '{:,.0f}'.format
 ##with pd.option_context('display.max_rows', None, 'display.max_columns', None,'display.max_colwidth', None):
 ##    print (dfmerge['sectionnum'])
-
-sectionsToUpdate= list(df['sectionnum'].astype(str))
+print(df)
+sectionsToUpdate= list(df['sectionnum'].astype(int))
 print(sectionsToUpdate)
 
 #df.info()
