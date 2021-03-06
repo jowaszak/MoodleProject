@@ -4,6 +4,7 @@ import json
 import datetime
 import pandas as pd 
 import numpy as np
+import glob
 
 # Module variables to connect to moodle api:
 # Insert token and URL for your site here.
@@ -11,7 +12,7 @@ import numpy as np
 KEY = "8cc87cf406775101c2df87b07b3a170d"
 URL = "https://034f8a1dcb5c.eu.ngrok.io"
 ENDPOINT = "/webservice/rest/server.php"
-NUMOFWEEKS= 12
+ENDPOINTFILES= 'https://github.com/jowaszak/MoodleProject/blob/master/'
 
 def rest_api_parameters(in_args, prefix='', out_dict=None):
     """Transform dictionary/array structure to a flat dictionary, with key names
@@ -79,7 +80,7 @@ class LocalUpdateSections(object):
 ################################################
 
 
-courseid = "8"  # Exchange with valid id.
+courseid = "10"  # Exchange with valid id.
 # Get all sections of the course.
 sec = LocalGetSections(courseid)
 
@@ -112,8 +113,8 @@ sec = LocalGetSections(courseid)
 dfmoodle = pd.DataFrame(sec.getsections) 
 
 #print all
-with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-    print (dfObj)
+#with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+#    print (dfObj)
 
 
         #"availability",
@@ -127,6 +128,7 @@ with pd.option_context('display.max_rows', None, 'display.max_columns', None):
         #"summaryformat",
         #"uservisible",
         #"visible"
+
 # use Glob() function to find files recursively
 
 files=[]
@@ -152,11 +154,9 @@ values=['html','md','pdf']
 
 dfFiles['FileType'] = np.select(conditions, values)
 
-
-# Exctract week number and add column
-dfFiles['WeekNo'] = dfFiles.FileName.str.extract('(\d+)')
-
 print(dfFiles)
+# Exctract week number and add column
+dfFiles['sectionnum'] = dfFiles.FileName.str.extract('(\d+)').astype(int)
 
 #add HTML that should be in summary
 dfFiles['HTML'] = '''<a href="''' + ENDPOINTFILES  + dfFiles['FileName'].astype(str)+ '''">Week'''+  dfFiles['sectionnum'].astype(str) + ': ' + dfFiles['FileName'].astype(str) + '</a><br>'
@@ -189,11 +189,31 @@ df = dfmerge.where(dfmerge['summary'] != dfmerge['summaryFile']).dropna()
 ##with pd.option_context('display.max_rows', None, 'display.max_columns', None,'display.max_colwidth', None):
 ##    print (dfmerge['sectionnum'])
 
-sectionsToUpdate= list(df['sectionnum'])
+sectionsToUpdate= list(df['sectionnum'].astype(str))
 print(sectionsToUpdate)
+
 #df.info()
 #print (sectionsToUpdate)
 
+
+#Quick reset the sections to update
+for sections in sectionsToUpdate:
+    #  Assemble the payload
+    data = [{'type': 'num', 'section': 0, 'summary': '', 'summaryformat': 1, 'visible': 1 , 'highlight': 0, 'sectionformatoptions': [{'name': 'level', 'value': '1'}]}]
+    courseid = "10"  # Exchange with valid id.
+    # Assemble the correct summary
+    summary = ''
+    #print(summary )
+    # Assign the correct summary
+    data[0]['summary'] = summary
+
+    # Set the correct section number
+    UpdateSection= sections
+    data[0]['section'] = UpdateSection
+  
+    print(data)
+    # Write the data back to Moodle
+    sec_write = LocalUpdateSections(courseid, data)
 
 for sections in sectionsToUpdate:
     #  Assemble the payload
@@ -208,9 +228,9 @@ for sections in sectionsToUpdate:
     data[0]['summary'] = summary
 
     # Set the correct section number
-    data[0]['section'] = sections
+    UpdateSection= sections
+    data[0]['section'] = UpdateSection
   
     print(data)
     # Write the data back to Moodle
     sec_write = LocalUpdateSections(courseid, data)
-
