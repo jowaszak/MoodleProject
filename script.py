@@ -4,6 +4,8 @@ import datetime
 import pandas as pd 
 import numpy as np
 import glob
+from bs4 import BeautifulSoup
+from urllib.request import urlopen
 
 # Module variables to connect to moodle api:
 # Insert token and URL for your site here.
@@ -12,6 +14,10 @@ KEY = "8cc87cf406775101c2df87b07b3a170d"
 URL = "https://034f8a1dcb5c.eu.ngrok.io"
 ENDPOINT = "/webservice/rest/server.php"
 ENDPOINTFILES= 'https://github.com/jowaszak/MoodleProject/blob/master/'
+URLGOOGLE = "https://drive.google.com/drive/folders/1pFHUrmpLv9gEJsvJYKxMdISuQuQsd_qX"
+PAGE = urlopen(URLGOOGLE)
+HTML = PAGE.read().decode("utf-8")
+soup = BeautifulSoup(HTML,"html.parser")
 
 def rest_api_parameters(in_args, prefix='', out_dict=None):
     """Transform dictionary/array structure to a flat dictionary, with key names
@@ -79,55 +85,74 @@ class LocalUpdateSections(object):
 ################################################
 
 
-courseid = "10"  # Exchange with valid id.
-# Get all sections of the course.
-sec = LocalGetSections(courseid)
+
+#################################
+### VIDEO 
+###
+###
+#################################
 
 
 
-# Get all sections of the course.
-sec = LocalGetSections(courseid)
-#print(sec.getsections)
+#get the details of the videos which are under the class Q5txwe
+recs = soup.find_all('div',class_ ='Q5txwe')
+
+#extract out just the name of the videos into a dataframe
+vids = pd.DataFrame(soup.find_all('div',class_ ='Q5txwe'))
+
+vids.columns = ['FileName']
+
+columns = ['hashid']
+
+ext = pd.DataFrame(columns=columns)
+
+#extract the hashvalues of the videos into a dataframe
+for rec in recs:
+    id =rec.parent.parent.parent.parent.attrs['data-id']
+    ext = ext.append({'hashid': id}, ignore_index=True)
+
+#merge the two dataframes
+dfGoogle = pd.merge(vids, ext, left_index=True, right_index=True)
+
+dfGoogle["link"] = "https://drive.google.com/file/d/"+dfGoogle['hashid'].astype(str) 
+
+print(dfGoogle)
+
+#write the dataframe to a file
+#f = open("dataframe.txt","w")
+#f.write(df.to_string())
+#f.close()
 
 
 
-
-#  Assemble the payload
-#data = [{'type': 'num', 'section': 0, 'summary': '', 'summaryformat': 1, 'visible': 1 , 'highlight': 0, 'sectionformatoptions': [{'name': 'level', 'value': '1'}]}]
-
-## Assemble the correct summary
-#summary = '<a href="https://mikhail-cct.github.io/ca3-test/wk1/">Week 1: Introduction</a><br>'
-
-## Assign the correct summary
-#data[0]['summary'] = summary
-
-## Set the correct section number
-#data[0]['section'] = 1
-
-## Write the data back to Moodle
-#sec_write = LocalUpdateSections(courseid, data)
-
-
-# write data do dataframe
-dfmoodle = pd.DataFrame(sec.getsections) 
 
 #print all
 #with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 #    print (dfObj)
 
 
-        #"availability",
-        #"courseformat",
-        #"id",
-        #"name",
-        #"sectionformatoptions",
-        #"sectionnum",
-        #"sequence",
-        #"summary",
-        #"summaryformat",
-        #"uservisible",
-        #"visible"
 
+#################################
+###
+###
+###
+#################################
+
+courseid = "10"  # Exchange with valid id.
+ 
+
+
+# Get all sections of the course.
+sec = LocalGetSections(courseid)
+# write data do dataframe
+dfmoodle = pd.DataFrame(sec.getsections) 
+
+
+#################################
+###
+###
+###
+#################################+
 # use Glob() function to find files recursively
 
 files=[]
@@ -137,6 +162,7 @@ for file in glob.iglob('**/*\*.*', recursive=True):
                     'FileName':file
             }
         )
+
 
 #Load to DF
 
@@ -190,7 +216,7 @@ df = dfmerge.where(dfmerge['summary'] != dfmerge['summaryFile']).dropna()
 #pd.options.display.float_format = '{:,.0f}'.format
 ##with pd.option_context('display.max_rows', None, 'display.max_columns', None,'display.max_colwidth', None):
 ##    print (dfmerge['sectionnum'])
-print(df)
+#print(df)
 sectionsToUpdate= list(df['sectionnum'].astype(int))
 print(sectionsToUpdate)
 
@@ -198,6 +224,15 @@ print(sectionsToUpdate)
 #print (sectionsToUpdate)
 
 
+
+
+
+
+#################################
+###
+###
+###
+#################################
 #Quick reset the sections to update
 for sections in sectionsToUpdate:
     #  Assemble the payload
