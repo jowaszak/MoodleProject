@@ -15,8 +15,8 @@
 # Assuming there are max two recordingsa per week
 # 
 # Assuming the cours to run continusly over year and if the new semester comes it will continue the weeks number sequence
-# 
-# 
+# The sample repository with these files is located here: https://github.com/mikhail-cct/ca3-test
+# https://github.com/corvus-albus/corvus-albus-moodle-local_wsmanagesections-script-examples
 ##########################################################################
 
 
