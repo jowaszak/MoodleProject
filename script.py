@@ -1,11 +1,37 @@
+###########################################################################
+#
+#A script automation in Python for Moodle that allows adding lecture material links and links to
+#individual class recordings into the correct module sections (weeks) on each run without duplications.
+#
+#Assuming that the script resides together with folders called wk1, wk2, wk3, ... wkX and in each folder
+#there is an index.html (slides) file and wkX.pdf file that corresponds to a lecture given in class that
+#week.
+#
+# At the moment the links to the file point to the source code , but once enable github page and you can 
+# change the base url to https://{user}.github.io/{project} 
+#  
+# If there is saturday class the material and the recording will be added to the Moodle
+# 
+# Assuming there are max two recordingsa per week
+# 
+# Assuming the cours to run continusly over year and if the new semester comes it will continue the weeks number sequence
+# 
+# 
+##########################################################################
+
+
+
+# Import requred libriries 
 from requests import get, post
 import json
-import datetime
+from datetime import datetime, date
 import pandas as pd 
 import numpy as np
 import glob
 from bs4 import BeautifulSoup
 from urllib.request import urlopen
+import re
+import substring
 
 # Module variables to connect to moodle api:
 # Insert token and URL for your site here.
@@ -13,11 +39,22 @@ from urllib.request import urlopen
 KEY = "8cc87cf406775101c2df87b07b3a170d"
 URL = "https://034f8a1dcb5c.eu.ngrok.io"
 ENDPOINT = "/webservice/rest/server.php"
+
+#URL base for links to the file 
+# change the base url to https://{user}.github.io/{project} if needed, 
 ENDPOINTFILES= 'https://github.com/jowaszak/MoodleProject/blob/master/'
+
+#Recordings in Google drives
 URLGOOGLE = "https://drive.google.com/drive/folders/1pFHUrmpLv9gEJsvJYKxMdISuQuQsd_qX"
 PAGE = urlopen(URLGOOGLE)
 HTML = PAGE.read().decode("utf-8")
-soup = BeautifulSoup(HTML,"html.parser")
+SOUP = BeautifulSoup(HTML,"html.parser")
+
+################################################
+# Rest-Api classes Moodle
+# 
+# 
+################################################
 
 def rest_api_parameters(in_args, prefix='', out_dict=None):
     """Transform dictionary/array structure to a flat dictionary, with key names
@@ -60,9 +97,7 @@ def call(fname, **kwargs):
         raise SystemError("Error calling Moodle API\n", response)
     return response
 
-################################################
-# Rest-Api classes
-################################################
+
 
 
 class LocalGetSections(object):
@@ -80,28 +115,25 @@ class LocalUpdateSections(object):
         self.updatesections = call(
             'local_wsmanagesections_update_sections', courseid=cid, sections=sectionsdata)
 
-################################################
-# Example
-################################################
 
 
 
 #################################
-### VIDEO 
-###
-###
+###         Google Drive video links
+### load to dataframe 
+### get the links and identify which week it belongs to
 #################################
 
 
 
 #get the details of the videos which are under the class Q5txwe
-recs = soup.find_all('div',class_ ='Q5txwe')
+recs = SOUP.find_all('div',class_ ='Q5txwe')
 
 #extract out just the name of the videos into a dataframe
-vids = pd.DataFrame(soup.find_all('div',class_ ='Q5txwe'))
+vids = pd.DataFrame(SOUP.find_all('div',class_ ='Q5txwe'))
 
 vids.columns = ['FileName']
-
+#print(vids)
 columns = ['hashid']
 
 ext = pd.DataFrame(columns=columns)
@@ -114,43 +146,65 @@ for rec in recs:
 #merge the two dataframes
 dfGoogle = pd.merge(vids, ext, left_index=True, right_index=True)
 
-dfGoogle["link"] = "https://drive.google.com/file/d/"+dfGoogle['hashid'].astype(str) 
+#get the date
+dfGoogle["video_date"] = dfGoogle['FileName'].str[:10]
 
-print(dfGoogle)
-
-#write the dataframe to a file
-#f = open("dataframe.txt","w")
-#f.write(df.to_string())
-#f.close()
+#built the HTML  containing links
+dfGoogle["Link"] = '''<a href="''' +"https://drive.google.com/file/d/"+dfGoogle['hashid'].astype(str)+  '''">Recorded session on : '''+ dfGoogle["video_date"].astype(str) + '</a><br>'
 
 
+# Semester started week 40, it run to next year 2021 so it will reset to 1. 
+# First the code extracts the week number then based on the value using pandas adds sectionnum that is the week number
+#This column will be used to erge it to the final dataframe
+dfGoogle['WeekNumber'] = pd.to_datetime(dfGoogle['video_date'],  format='%Y-%m-%d').dt.week
 
+dfGoogle['sectionnum']= pd.np.where(dfGoogle['WeekNumber']>=40,
+                        dfGoogle['WeekNumber']-39, 
+                        dfGoogle['WeekNumber']+14
+                        )
 
-#print all
-#with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-#    print (dfObj)
+#pivot table to concat the the HTML if there is more then one recording per
+dfGoogle['Group']= dfGoogle.groupby(dfGoogle['WeekNumber']).rank(method="first", ascending=True).astype(str)
+dfGoogle= pd.pivot_table(dfGoogle, 
+                          values = 'Link', 
+                          index=['sectionnum'], 
+                          columns = ['Group'],
+                          aggfunc=lambda x: ' '.join(x)
+                          ).reset_index()
+
+# assuming there be only two recordings per week concat the two columns to get the links in one line
+dfGoogle['summaryFile'] = dfGoogle['1.0'].astype(str)+dfGoogle['2.0'].astype(str)
 
 
 
 #################################
-###
-###
+###              Moodle 
+### Get all sections of the course and load to the dataframe
 ###
 #################################
 
 courseid = "10"  # Exchange with valid id.
  
 
-
 # Get all sections of the course.
 sec = LocalGetSections(courseid)
 # write data do dataframe
 dfmoodle = pd.DataFrame(sec.getsections) 
 
+## Get the title last date S after substring occurrence -  using partition()
+## initializing split word 
+#splChac = '-'
+## Add column using partition() 
+#dfmoodle['LastDate']= pd.np.where(dfmoodle['name'].str.contains(splChac),
+#                      dfmoodle['name'].str.partition("-")[2] , ""
+#                                  #substring.substringByChar(dfmoodle['name'], startChar=splChac)
+#                        )
+#print(dfmoodle)
+
 
 #################################
-###
-###
+###                 Files 
+### Read the Subfolders and load to the dataframe
 ###
 #################################+
 # use Glob() function to find files recursively
@@ -168,6 +222,7 @@ for file in glob.iglob('**/*\*.*', recursive=True):
 
 dfFiles= pd.DataFrame(files)
 
+
 #Add column based on condition to know what file it is
 conditions= [
     (dfFiles.FileName.str.endswith('.html')),
@@ -179,7 +234,7 @@ values=['html','md','pdf']
 
 dfFiles['FileType'] = np.select(conditions, values)
 
-print(dfFiles)
+#print(dfFiles)
 # Exctract week number and add column
 dfFiles['sectionnum'] = dfFiles.FileName.str.extract('(\d+)').astype(int)
 
@@ -195,29 +250,44 @@ dfFiles= pd.pivot_table(dfFiles,
                           aggfunc=lambda x: ' '.join(x)
                           ).reset_index()
 
-dfFiles['summaryFile'] = dfFiles['html'].astype(str)+dfFiles['md'].astype(str)+dfFiles['pdf'].astype(str)
+dfFiles['summaryFile'] = dfFiles['html'].astype(str)+dfFiles['pdf'].astype(str)
 
 
 
 #Merge the two dataframes and 
 dfmerge = pd.merge(dfFiles, dfmoodle[['summary','sectionnum']], on=['sectionnum'], how='left')
+#add google recordings
+dfmerge = pd.merge(dfGoogle, dfmerge, on=['sectionnum'], how='left')
+
+#with pd.option_context('display.max_rows', None, 'display.max_columns', None,'display.max_colwidth', None):#
+
+#    print(dfmerge)
 
 #setting the index of data frame
 #dfmerge.set_index("sectionnum", inplace=True)
 
 #Lookup the sections to update
 
-df = dfmerge.where(dfmerge['summary'] != dfmerge['summaryFile']).dropna()
+dfmerge['summaryFile']=dfmerge['summaryFile_y']+dfmerge['summaryFile_x']
+dfmerge['summaryFile']= dfmerge['summaryFile'].str.replace('>nan','>')
+#with pd.option_context('display.max_rows', None, 'display.max_columns', None,'display.max_colwidth', None):
+
+#    print(dfmerge)
+df = dfmerge.where(dfmerge['summary'] != dfmerge['summaryFile'])
 
 #setting the index of data frame
 #df.set_index("sectionnum", inplace=True)
 #
 
 #pd.options.display.float_format = '{:,.0f}'.format
-##with pd.option_context('display.max_rows', None, 'display.max_columns', None,'display.max_colwidth', None):
-##    print (dfmerge['sectionnum'])
-#print(df)
-sectionsToUpdate= list(df['sectionnum'].astype(int))
+with pd.option_context('display.max_rows', None, 'display.max_columns', None,'display.max_colwidth', None):
+    print (df)
+
+print(1)
+print(dfmerge['summaryFile'].dropna())
+print(2)
+print(dfmerge['summaryFile'])
+sectionsToUpdate= list(df['sectionnum'].dropna().astype(int))
 print(sectionsToUpdate)
 
 #df.info()
@@ -248,7 +318,7 @@ for sections in sectionsToUpdate:
     UpdateSection= sections
     data[0]['section'] = UpdateSection
   
-    print(data)
+    #print(data)
     # Write the data back to Moodle
     sec_write = LocalUpdateSections(courseid, data)
 
@@ -268,6 +338,6 @@ for sections in sectionsToUpdate:
     UpdateSection= sections
     data[0]['section'] = UpdateSection
   
-    print(data)
+   # print(data)
     # Write the data back to Moodle
     sec_write = LocalUpdateSections(courseid, data)
