@@ -147,16 +147,16 @@ for rec in recs:
 dfGoogle = pd.merge(vids, ext, left_index=True, right_index=True)
 
 #get the date
-dfGoogle["video_date"] = dfGoogle['FileName'].str[:10]
+dfGoogle["videoDate"] = dfGoogle['FileName'].str[:10]
 
 #built the HTML  containing links
-dfGoogle["Link"] = '''<a href="''' +"https://drive.google.com/file/d/"+dfGoogle['hashid'].astype(str)+  '''">Recorded session on : '''+ dfGoogle["video_date"].astype(str) + '</a><br>'
+dfGoogle["Link"] = '''<a href="''' +"https://drive.google.com/file/d/"+dfGoogle['hashid'].astype(str)+  '''">Recorded session on : '''+ dfGoogle["videoDate"].astype(str) + '</a><br>'
 
 
 # Semester started week 40, it run to next year 2021 so it will reset to 1. 
 # First the code extracts the week number then based on the value using pandas adds sectionnum that is the week number
 #This column will be used to erge it to the final dataframe
-dfGoogle['WeekNumber'] = pd.to_datetime(dfGoogle['video_date'],  format='%Y-%m-%d').dt.week
+dfGoogle['WeekNumber'] = pd.to_datetime(dfGoogle['videoDate'],  format='%Y-%m-%d').dt.week
 
 dfGoogle['sectionnum']= pd.np.where(dfGoogle['WeekNumber']>=40,
                         dfGoogle['WeekNumber']-39, 
@@ -191,7 +191,7 @@ sec = LocalGetSections(courseid)
 # write data do dataframe
 dfmoodle = pd.DataFrame(sec.getsections) 
 
-## Get the title last date S after substring occurrence -  using partition()
+## Get the title last date
 ## initializing split word 
 #splChac = '-'
 ## Add column using partition() 
@@ -207,7 +207,7 @@ dfmoodle = pd.DataFrame(sec.getsections)
 ### Read the Subfolders and load to the dataframe
 ###
 #################################+
-# use Glob() function to find files recursively
+# use Glob() function to find files recursively, find only in subfolder 
 
 files=[]
 for file in glob.iglob('**/*\*.*', recursive=True):
@@ -234,7 +234,6 @@ values=['html','md','pdf']
 
 dfFiles['FileType'] = np.select(conditions, values)
 
-#print(dfFiles)
 # Exctract week number and add column
 dfFiles['sectionnum'] = dfFiles.FileName.str.extract('(\d+)').astype(int)
 
@@ -252,56 +251,34 @@ dfFiles= pd.pivot_table(dfFiles,
 
 dfFiles['summaryFile'] = dfFiles['html'].astype(str)+dfFiles['pdf'].astype(str)
 
-
+#################################
+###                 Merging 
+### Merge three dataframes Google links, Files and Moodle
+###compare lists and add the missing lecture notes and recordings
+#################################+
 
 #Merge the two dataframes and 
 dfmerge = pd.merge(dfFiles, dfmoodle[['summary','sectionnum']], on=['sectionnum'], how='left')
 #add google recordings
 dfmerge = pd.merge(dfGoogle, dfmerge, on=['sectionnum'], how='left')
 
-#with pd.option_context('display.max_rows', None, 'display.max_columns', None,'display.max_colwidth', None):#
-
-#    print(dfmerge)
-
-#setting the index of data frame
-#dfmerge.set_index("sectionnum", inplace=True)
-
-#Lookup the sections to update
-
+#preper the summaries with the avalable lecture notes and recordings
 dfmerge['summaryFile']=dfmerge['summaryFile_y']+dfmerge['summaryFile_x']
 dfmerge['summaryFile']= dfmerge['summaryFile'].str.replace('>nan','>')
-#with pd.option_context('display.max_rows', None, 'display.max_columns', None,'display.max_colwidth', None):
 
-#    print(dfmerge)
+#Lookup the sections to update
 df = dfmerge.where(dfmerge['summary'] != dfmerge['summaryFile'])
-
-#setting the index of data frame
-#df.set_index("sectionnum", inplace=True)
-#
-
-#pd.options.display.float_format = '{:,.0f}'.format
-with pd.option_context('display.max_rows', None, 'display.max_columns', None,'display.max_colwidth', None):
-    print (df)
-
-print(1)
-print(dfmerge['summaryFile'].dropna())
-print(2)
-print(dfmerge['summaryFile'])
+#list the sections to update
 sectionsToUpdate= list(df['sectionnum'].dropna().astype(int))
-print(sectionsToUpdate)
-
-#df.info()
-#print (sectionsToUpdate)
-
 
 
 
 
 
 #################################
-###
-###
-###
+###  Put it all togheter :)
+###first delete the content in moodle if already exists in sections to update to avoind duplicates
+###Then update it
 #################################
 #Quick reset the sections to update
 for sections in sectionsToUpdate:
@@ -310,7 +287,7 @@ for sections in sectionsToUpdate:
     courseid = "10"  # Exchange with valid id.
     # Assemble the correct summary
     summary = ''
-    #print(summary )
+ 
     # Assign the correct summary
     data[0]['summary'] = summary
 
@@ -318,7 +295,7 @@ for sections in sectionsToUpdate:
     UpdateSection= sections
     data[0]['section'] = UpdateSection
   
-    #print(data)
+ 
     # Write the data back to Moodle
     sec_write = LocalUpdateSections(courseid, data)
 
@@ -338,6 +315,6 @@ for sections in sectionsToUpdate:
     UpdateSection= sections
     data[0]['section'] = UpdateSection
   
-   # print(data)
+
     # Write the data back to Moodle
     sec_write = LocalUpdateSections(courseid, data)
